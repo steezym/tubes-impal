@@ -182,8 +182,8 @@ export default function App() {
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="ResetPassword" component={ResetPassword} />
           <Stack.Screen name="Home" component={Home} />
-           <Stack.Screen name="Terms" component={TermsScreen} />
-  <Stack.Screen name="Privacy" component={PrivacyScreen} />
+          <Stack.Screen name="Terms" component={TermsScreen} />
+          <Stack.Screen name="Privacy" component={PrivacyScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
