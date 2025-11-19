@@ -14,12 +14,13 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LinearGradient from 'react-native-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import InputWithIcon from './components/InputWithIcon';
 import UserIcon from './components/icons/UserIcon';
 import LockIcon from './components/icons/LockIcon';
 
-import Home from './Home';
+import Tabs from './Tabs';
 import Register from './Register';
 import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
@@ -38,6 +39,15 @@ function LoginScreen({ navigation }) {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+
+  const storeData = async (key, value) => {
+    try {
+      const stringValue = JSON.stringify(value);
+      await AsyncStorage.setItem(key, stringValue);
+    } catch (err) {
+      console.log(err.message);
+    }
+  };
 
   const onLogin = async () => {
     setError('');
@@ -64,9 +74,9 @@ function LoginScreen({ navigation }) {
         setError(data?.message || 'Login failed');
         return;
       }
-
+      storeData('user', data.user);
       // sukses -> ke Home
-      navigation.replace('Home', { user: data.user });
+      navigation.replace('Tabs');
     } catch (e) {
       console.log('Login error:', e);
       setError('Unable to connect to the server');
@@ -181,7 +191,7 @@ export default function App() {
           <Stack.Screen name="Register" component={Register} />
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="ResetPassword" component={ResetPassword} />
-          <Stack.Screen name="Home" component={Home} />
+          <Stack.Screen name="Tabs" component={Tabs} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="Privacy" component={PrivacyScreen} />
         </Stack.Navigator>

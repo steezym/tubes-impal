@@ -1,43 +1,215 @@
-import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import Post from './assets/components/Post/index';
+
+import LogoutIcon from './assets/icons/logout_svg.svg';
+import { ScrollView } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import PostButton from './assets/components/PostButton/index';
+import DeleteModal from './assets/components/DeleteModal/index';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
-export default function Home({ navigation }) {
+const Home = () => {
+  const navigation = useNavigation();
+  const [postSelection, setPostSelection] = useState('you');
+  const [post, setPost] = useState([]);
+  const [popUpShow, setPopUpShow] = useState(false);
+  const [selectedId, setSelectedId] = useState();
+  const [userData, setUserData] = useState();
+
+  const getDataUser = async key => {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      setUserData(JSON.parse(value));
+    } catch (err) {
+      console.log(err.message);
+    }
+  };
+
+  const deleteDataUser = async key => {
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch (err) {
+      console.log(err.message);
+    }
+  };
+
+  const API_URL = 'http://192.168.100.23:4000'; // Ubah sesuai dengan IPv4 di ipconfig cmd
+
+  const getData = async () => {
+    await axios
+      .get(
+        `${API_URL}/post/${postSelection === 'you' ? '' : 'exclude/'}${
+          userData?.id
+        }`,
+      )
+      .then(res => {
+        setPost(res.data.data);
+      })
+      .catch(err => console.log(err.message));
+  };
+
+  const deletePost = async postId => {
+    await axios
+      .delete(`${API_URL}/post/${postId}`)
+      .then(res => console.log('Delete post success!'));
+  };
+
+  useEffect(() => {
+    getDataUser('user');
+  }, []);
+
+  useEffect(() => {
+    getData();
+  }, [userData]);
+
+  useEffect(() => {
+    getData();
+  }, [postSelection]);
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top','left','right']}>
-      <LinearGradient
-        colors={['#FEFEFC', '#FEFEFC', '#C2E86A']}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={styles.gradient}
-      >
-        <View style={styles.container}>
-          <Text style={styles.text}>Home Page</Text>
+    <LinearGradient
+      style={{ height: '100%' }}
+      colors={['#ffff', '#ffff', '#C2E86A']}
+    >
+      {popUpShow ? (
+        <DeleteModal
+          deletePost={() => {
+            deletePost(selectedId);
+            setPopUpShow(false);
+            setSelectedId();
+          }}
+          closeModal={() => {
+            setPopUpShow(false);
+            setSelectedId();
+          }}
+        />
+      ) : (
+        <></>
+      )}
 
-          <TouchableOpacity
-            style={styles.logoutBtn}
-            activeOpacity={0.85}
-            onPress={() => navigation.replace('Login')}
-          >
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+      <PostButton />
+      <ScrollView>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.textHeader}>Howdy, {userData?.name} 👋</Text>
+              <Text style={styles.textSubHeader}>Glad to see you again!</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                deleteDataUser('user');
+                navigation.replace('Login');
+              }}
+              style={styles.logoutIconWrapper}
+            >
+              <LogoutIcon />
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginVertical: 10 }}>
+            <TouchableOpacity
+              onPress={() => setPostSelection('you')}
+              style={
+                postSelection === 'you'
+                  ? styles.postSelectionActiveWrapper
+                  : styles.postSelectionNonActiveWrapper
+              }
+            >
+              <Text
+                style={
+                  postSelection === 'you'
+                    ? styles.postSelectionActiveText
+                    : styles.postSelectionNonActiveText
+                }
+              >
+                You
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setPostSelection('friends')}
+              style={
+                postSelection === 'friends'
+                  ? styles.postSelectionActiveWrapper
+                  : styles.postSelectionNonActiveWrapper
+              }
+            >
+              <Text
+                style={
+                  postSelection === 'friends'
+                    ? styles.postSelectionActiveText
+                    : styles.postSelectionNonActiveText
+                }
+              >
+                Friends
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {post.map(data => {
+            return (
+              <Post
+                key={data.post_id}
+                postId={data.post_id}
+                username={data.name}
+                date={data.timestamp}
+                caption={data.content}
+                image={data.file}
+                selection={postSelection}
+                showModal={() => {
+                  setPopUpShow(true);
+                  setSelectedId(data.post_id);
+                }}
+              />
+            );
+          })}
+          <View style={{ padding: 12 }}></View>
         </View>
-      </LinearGradient>
-    </SafeAreaView>
+      </ScrollView>
+    </LinearGradient>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
-  gradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { alignItems: 'center' },
-  text: { fontSize: 28, fontWeight: '800', color: '#1F2937', marginBottom: 40 },
-  logoutBtn: {
-    backgroundColor: '#000000',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 30,
+  content: {
+    padding: 30,
   },
-  logoutText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  textHeader: {
+    fontFamily: 'Inter_SemiBold',
+    fontSize: 20,
+  },
+  textSubHeader: {
+    fontFamily: 'Inter_Medium',
+    fontSize: 14,
+    color: '#848484',
+  },
+  logoutIconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#87A347',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  postSelectionActiveWrapper: {
+    backgroundColor: '#000',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  postSelectionActiveText: { color: '#fff', fontFamily: 'Inter_SemiBold' },
+  postSelectionNonActiveWrapper: {
+    borderWidth: 2,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  postSelectionNonActiveText: { color: '#000', fontFamily: 'Inter_SemiBold' },
 });
+
+export default Home;
