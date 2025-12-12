@@ -3,9 +3,12 @@ import cors from 'cors';
 import db from './config/db.js';
 import Post from './Models/Post.js';
 import upload from './config/multer.js';
+import PostController from './Controllers/PostController.js';
 
 const app = express();
 const port = 4000;
+const postController = new PostController();
+app.use(express.static('./images'));
 
 // connect ke database
 db.connect(err => {
@@ -18,6 +21,38 @@ db.connect(err => {
 
 app.use(cors());
 app.use(express.json());
+
+// ======================================================
+//  CHECK USERNAME (untuk frontend cek dulu)
+//  GET /auth/check-username?name=mazmur
+// ======================================================
+app.get('/auth/check-username', (req, res) => {
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({
+      exists: false,
+      message: 'name is required',
+    });
+  }
+
+  const query = 'SELECT 1 FROM user WHERE name = ? LIMIT 1';
+  db.query(query, [name], (err, result) => {
+    if (err) {
+      console.error('DB error /auth/check-username:', err);
+      return res.status(500).json({
+        exists: false,
+        message: 'Database error',
+      });
+    }
+
+    if (result.length > 0) {
+      return res.json({ exists: true });
+    }
+
+    return res.json({ exists: false });
+  });
+});
 
 // ======================================================
 //  LOGIN
@@ -60,12 +95,28 @@ app.post('/auth/register', (req, res) => {
   if (!name || !email || !password)
     return res.status(400).json({ message: 'All fields are required' });
 
-  const checkQuery = 'SELECT * FROM user WHERE email = ?';
-  db.query(checkQuery, [email], (err, result) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
+  // cek email ATAU username (name) sudah dipakai
+  const checkQuery =
+    'SELECT name, email FROM user WHERE email = ? OR name = ? LIMIT 1';
+  db.query(checkQuery, [email, name], (err, result) => {
+    if (err) {
+      console.error('DB error /auth/register (check):', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
 
     if (result.length > 0) {
-      return res.status(400).json({ message: 'Email is already registered' });
+      const existing = result[0];
+
+      if (existing.email === email) {
+        return res.status(409).json({ message: 'Email is already registered' });
+      }
+
+      if (existing.name === name) {
+        return res.status(409).json({ message: 'Username already registered' });
+      }
+
+      // fallback (harusnya nggak kena)
+      return res.status(409).json({ message: 'Already registered' });
     }
 
     const user_id = 'U' + Date.now().toString().slice(-6);
@@ -73,7 +124,10 @@ app.post('/auth/register', (req, res) => {
       'INSERT INTO user (user_id, name, email, password) VALUES (?, ?, ?, ?)';
 
     db.query(insertQuery, [user_id, name, email, password], err2 => {
-      if (err2) return res.status(500).json({ message: 'Database error' });
+      if (err2) {
+        console.error('DB error /auth/register (insert):', err2);
+        return res.status(500).json({ message: 'Database error' });
+      }
 
       res.status(201).json({
         message: 'Registration successful',
@@ -170,146 +224,37 @@ app.post('/auth/reset', (req, res) => {
 // ======================================================
 //  GET ALL POSTS
 // ======================================================
-
-app.get('/post', async (req, res) => {
-  try {
-    const post = new Post();
-    const data = (await post.getPost())[0];
-    res.status(200).json({
-      status: 'success',
-      length: data.length,
-      data: data,
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.get('/post', postController.getPost);
 
 // ======================================================
 //  GET ALL POSTS BY USER ID
 // ======================================================
 
-app.get('/post/:user_id', async (req, res) => {
-  try {
-    const userId = req.params.user_id;
-    const post = new Post();
-    const data = (await post.getPostByUserId(userId))[0];
-    res.status(200).json({
-      status: 'success',
-      length: data.length,
-      data: data,
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.get('/post/user/:user_id', postController.getPostsUser);
 
 // ======================================================
 //  GET ALL POSTS OTHER EXCEPT USER
 // ======================================================
 
-app.get('/post/exclude/:user_id', async (req, res) => {
-  try {
-    const userId = req.params.user_id;
-    const post = new Post();
-    const data = (await post.getPostByUserExclusion(userId))[0];
-    res.status(200).json({
-      status: 'success',
-      length: data.length,
-      data: data,
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.get('/post/exclude/:user_id', postController.getPostsExcludingUser);
 
 // ======================================================
 //  ADD A POST
 // ======================================================
 
-app.post('/post', upload.single('file'), async (req, res) => {
-  try {
-    const post_id = 'P' + Date.now().toString().slice(-6);
-    const post = new Post(
-      post_id,
-      req.body.content,
-      req.file?.filename,
-      req.body.timestamp,
-      req.body.user_id,
-    );
-
-    await post.createPost();
-    res.status(200).json({
-      status: 'success',
-      message: 'Post successfully posted!',
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.post('/post', upload.single('file'), postController.uploadPost);
 
 // ======================================================
 //  UPDATE A POST
 // ======================================================
 
-app.patch('/post/:postId', upload.single('file'), async (req, res) => {
-  try {
-    const post = new Post();
-    const getPost = (await post.getPostById(req.params.postId))[0][0];
-
-    if (!getPost) {
-      throw new Error('Post not found!');
-    } else {
-      const newPost = new Post(
-        getPost.post_id,
-        req.body?.content ? req.body.content : getPost.content,
-        req.file?.filename ? req.file.filename : getPost.file,
-        '',
-        '',
-      );
-      await newPost.editPost();
-    }
-
-    res.status(201).json({
-      status: 'success',
-      message: 'Post updated successfully!',
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.patch('/post/:postId', upload.single('file'), postController.updatePost);
 
 // ======================================================
 //  DELETE A POST
 // ======================================================
 
-app.delete('/post/:postId', async (req, res) => {
-  try {
-    const post = new Post(req.params.postId, '', '', '', '');
-    const deletePost = await post.deletePost();
-    res.status(204).json({});
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.delete('/post/:postId', postController.deletePost);
 
 // ======================================================
 //  START SERVER

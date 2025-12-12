@@ -34,7 +34,7 @@ const LoadingBar = () => {
         >
           Processing Photo...
         </Text>
-        <ActivityIndicator size="large" color="000" />
+        <ActivityIndicator size="large" color="#000" />
       </View>
     </View>
   );

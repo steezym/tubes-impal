@@ -26,6 +26,8 @@ import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
+import Camera from './Camera';
+import Post from './Post';
 
 const Stack = createNativeStackNavigator();
 const API_URL =
@@ -192,6 +194,8 @@ export default function App() {
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="ResetPassword" component={ResetPassword} />
           <Stack.Screen name="Tabs" component={Tabs} />
+          <Stack.Screen name="Camera" component={Camera} />
+          <Stack.Screen name="Post" component={Post} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="Privacy" component={PrivacyScreen} />
         </Stack.Navigator>
