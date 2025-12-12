@@ -194,7 +194,7 @@ export default function Register({ navigation }) {
         <View style={s.form}>
           {/* USERNAME */}
           <InputWithIcon
-            placeholder="Enter username (lowercase, no spaces)"
+            placeholder="Enter username"
             value={username}
             onChangeText={t => {
               const cleaned = t.toLowerCase().replace(/\s+/g, '');
@@ -208,7 +208,7 @@ export default function Register({ navigation }) {
 
           {/* EMAIL */}
           <InputWithIcon
-            placeholder="Enter your email (@gmail.com only)"
+            placeholder="Enter your email"
             value={email}
             onChangeText={t => {
               setEmail(t);

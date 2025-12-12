@@ -43,7 +43,36 @@ export default function ResetPassword({ navigation, route }) {
       return;
     }
 
+    // ✅ PASSWORD KUAT (minimal 6 + kombinasi)
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+
+    if (!hasUpperCase) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+    if (!hasLowerCase) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+    if (!hasNumber) {
+      setError('Password must contain at least one number');
+      return;
+    }
+    if (!hasSymbol) {
+      setError('Password must contain at least one symbol');
+      return;
+    }
+
     setLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/auth/reset`, {
         method: 'POST',
@@ -95,7 +124,8 @@ export default function ResetPassword({ navigation, route }) {
             placeholder="Enter your email"
             value={email}
             onChangeText={t => {
-              setEmail(t);
+              const cleaned = t.toLowerCase().replace(/\s+/g, '');
+              setEmail(cleaned);
               setError('');
               setSuccess('');
             }}
@@ -103,6 +133,7 @@ export default function ResetPassword({ navigation, route }) {
             autoCapitalize="none"
             IconComponent={UserIcon}
           />
+
           <InputWithIcon
             placeholder="Enter OTP"
             value={otp}

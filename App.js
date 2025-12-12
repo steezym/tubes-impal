@@ -116,16 +116,18 @@ function LoginScreen({ navigation }) {
             {/* Form */}
             <View style={styles.form}>
               <InputWithIcon
-                placeholder="Enter your email"
-                value={email}
-                onChangeText={t => {
-                  setEmail(t);
-                  if (error) setError('');
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                IconComponent={UserIcon}
-              />
+  placeholder="Enter your email"
+  value={email}
+  onChangeText={t => {
+    const cleaned = t.toLowerCase().replace(/\s+/g, '');
+    setEmail(cleaned);
+    if (error) setError('');
+  }}
+  keyboardType="email-address"
+  autoCapitalize="none"
+  IconComponent={UserIcon}
+/>
+
               <InputWithIcon
                 placeholder="Enter your password"
                 value={password}
