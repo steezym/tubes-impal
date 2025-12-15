@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import React from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 
 import TrashIcon from '../../icons/trash_icon.png';
 import PencilIcon from '../../icons/pencil_icon.png';
@@ -35,33 +35,7 @@ const Post = props => {
         }}
       >
         {props.selection === 'you' ? (
-          <>
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#fff',
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Image source={PencilIcon} style={{ width: 20, height: 20 }} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={props.showModal}
-              style={{
-                backgroundColor: '#fff',
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Image source={TrashIcon} style={{ width: 20, height: 20 }} />
-            </TouchableOpacity>
-          </>
+          <></>
         ) : (
           <TouchableOpacity
             style={{

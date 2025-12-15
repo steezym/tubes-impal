@@ -1,14 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import Post from './assets/components/Post/index';
-
-import LogoutIcon from './assets/icons/logout_svg.svg';
 import { ScrollView } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import PostButton from './assets/components/PostButton/index';
-import DeleteModal from './assets/components/DeleteModal/index';
+import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import Post from './assets/components/Post/index';
+import LogoutIcon from './assets/icons/logout_svg.svg';
+import UserEmptyPost from './assets/components/UserEmptyPost/index';
+import PostButton from './assets/components/PostButton/index';
 import axios from 'axios';
 import Timer from './services/Timer';
 import AlertModal from './Alert';
@@ -23,7 +23,7 @@ const Home = () => {
   const [selectedId, setSelectedId] = useState();
   const [userData, setUserData] = useState();
 
-  const getDataUser = async key => {
+  const getUserData = async key => {
     try {
       const value = await AsyncStorage.getItem(key);
       setUserData(JSON.parse(value));
@@ -42,12 +42,12 @@ const Home = () => {
 
   const API_URL = 'http://10.0.2.2:4000'; // Ubah sesuai dengan IPv4 di ipconfig cmd
 
-  const getData = async () => {
+  const getPostDataByUser = async id => {
     await axios
       .get(
-        `${API_URL}/post/${postSelection === 'you' ? '' : 'exclude/'}${
-          userData?.id
-        }`,
+        `${API_URL}/post/${
+          postSelection === 'you' ? 'user/' : 'exclude/'
+        }${id}`,
       )
       .then(res => {
         setPost(res.data.data);
@@ -66,15 +66,15 @@ const Home = () => {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    getDataUser('user');
+    getUserData('user');
   }, []);
 
   useEffect(() => {
-    getData();
+    getPostDataByUser(userData?.id);
   }, [userData]);
 
   useEffect(() => {
-    getData();
+    getPostDataByUser(userData?.id);
   }, [postSelection]);
 
   useEffect(() => {
@@ -118,7 +118,7 @@ const Home = () => {
         <></>
       )}
 
-      <PostButton />
+      <PostButton action={() => navigation.navigate('Camera')} />
       <ScrollView>
         <View style={styles.content}>
           <View style={styles.header}>
@@ -156,21 +156,21 @@ const Home = () => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setPostSelection('friends')}
+              onPress={() => setPostSelection('others')}
               style={
-                postSelection === 'friends'
+                postSelection === 'others'
                   ? styles.postSelectionActiveWrapper
                   : styles.postSelectionNonActiveWrapper
               }
             >
               <Text
                 style={
-                  postSelection === 'friends'
+                  postSelection === 'others'
                     ? styles.postSelectionActiveText
                     : styles.postSelectionNonActiveText
                 }
               >
-                Friends
+                Others
               </Text>
             </TouchableOpacity>
           </View>
@@ -209,6 +209,25 @@ const Home = () => {
             }}
             onClose={() => BackHandler.exitApp()}
           />
+          {post?.length > 0 ? (
+            post.map(data => {
+              return (
+                <Post
+                  key={data.post_id}
+                  postId={data.post_id}
+                  username={data.name}
+                  date={data.timestamp}
+                  caption={data.content}
+                  image={data.file}
+                  selection={postSelection}
+                />
+              );
+            })
+          ) : postSelection == 'you' ? (
+            <UserEmptyPost action={() => navigation.navigate('Camera')} />
+          ) : (
+            <></>
+          )}
           <View style={{ padding: 12 }}></View>
         </View>
       </ScrollView>

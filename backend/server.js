@@ -1,18 +1,44 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
+import nodemailer from 'nodemailer';
+
 import db from './config/db.js';
-import Post from './Models/Post.js';
 import upload from './config/multer.js';
 import Chat from './Models/Chat.js';
 import Alert from './Models/Alert.js';
 import { v4 as uuidv4 } from 'uuid';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import PostController from './Controllers/PostController.js';
+
+dotenv.config();
 
 const app = express();
 const port = 4000;
+const postController = new PostController();
 
-// connect ke database
+app.use(cors());
+app.use(express.json());
+app.use(express.static('./images'));
+
+// ======================================================
+// EMAIL TRANSPORTER (GMAIL) — FIX TLS ERROR
+// ======================================================
+const mailer = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // APP PASSWORD GMAIL
+  },
+  tls: {
+    rejectUnauthorized: false, // ⬅️ FIX self-signed certificate
+  },
+});
+
+// ======================================================
+// CONNECT DATABASE
+// ======================================================
 db.connect(err => {
   if (err) {
     console.error('❌ Database connection failed:', err);
@@ -21,177 +47,169 @@ db.connect(err => {
   }
 });
 
-app.use(cors());
-app.use(express.json());
+// ======================================================
+// CHECK USERNAME
+// ======================================================
+app.get('/auth/check-username', (req, res) => {
+  const { name } = req.query;
+  if (!name) return res.json({ exists: false });
+
+  db.query(
+    'SELECT 1 FROM user WHERE name=? LIMIT 1',
+    [name],
+    (err, rows) => {
+      if (err) return res.json({ exists: false });
+      res.json({ exists: rows.length > 0 });
+    },
+  );
+});
 
 // ======================================================
-//  LOGIN
+// LOGIN
 // ======================================================
 app.post('/auth/login', (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
+  if (!email || !password)
+    return res.status(400).json({ message: 'Email and password required' });
 
-  // validasi simple
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-
-  const query = 'SELECT * FROM user WHERE email = ?';
-  db.query(query, [email], (err, result) => {
+  db.query('SELECT * FROM user WHERE email=?', [email], (err, rows) => {
     if (err) return res.status(500).json({ message: 'Database error' });
-
-    // cek email & password
-    if (result.length === 0 || result[0].password !== password) {
+    if (rows.length === 0 || rows[0].password !== password)
       return res.status(401).json({ message: 'Invalid email or password' });
-    }
 
-    // jika berhasil
     res.json({
       message: 'Login success',
       user: {
-        id: result[0].user_id,
-        name: result[0].name,
-        email: result[0].email,
+        id: rows[0].user_id,
+        name: rows[0].name,
+        email: rows[0].email,
       },
     });
   });
 });
 
 // ======================================================
-//  REGISTER
+// REGISTER
 // ======================================================
 app.post('/auth/register', (req, res) => {
-  const { name, email, password } = req.body;
-
+  const { name, email, password } = req.body || {};
   if (!name || !email || !password)
-    return res.status(400).json({ message: 'All fields are required' });
+    return res.status(400).json({ message: 'All fields required' });
 
-  const checkQuery = 'SELECT * FROM user WHERE email = ?';
-  db.query(checkQuery, [email], (err, result) => {
+  const check =
+    'SELECT name,email FROM user WHERE email=? OR name=? LIMIT 1';
+
+  db.query(check, [email, name], (err, rows) => {
     if (err) return res.status(500).json({ message: 'Database error' });
 
-    if (result.length > 0) {
-      return res.status(400).json({ message: 'Email is already registered' });
+    if (rows.length > 0) {
+      if (rows[0].email === email)
+        return res.status(409).json({ message: 'Email already registered' });
+      if (rows[0].name === name)
+        return res.status(409).json({ message: 'Username already registered' });
     }
 
     const user_id = 'U' + Date.now().toString().slice(-6);
-    const insertQuery =
-      'INSERT INTO user (user_id, name, email, password) VALUES (?, ?, ?, ?)';
-
-    db.query(insertQuery, [user_id, name, email, password], err2 => {
-      if (err2) return res.status(500).json({ message: 'Database error' });
-
-      res.status(201).json({
-        message: 'Registration successful',
-        user: { name, email },
-      });
-    });
+    db.query(
+      'INSERT INTO user (user_id,name,email,password) VALUES (?,?,?,?)',
+      [user_id, name, email, password],
+      err2 => {
+        if (err2)
+          return res.status(500).json({ message: 'Database error' });
+        res.status(201).json({ message: 'Registration successful' });
+      },
+    );
   });
 });
 
 // ======================================================
-//  FORGOT PASSWORD (LOCAL OTP)
+// FORGOT PASSWORD — SEND OTP EMAIL (ANTI CRASH)
 // ======================================================
 app.post('/auth/forgot', (req, res) => {
   const { email } = req.body || {};
-  console.log('📩 Hit /auth/forgot:', req.body);
+  const generic = { message: 'OTP has been sent to email' };
 
-  const generic = {
-    message: 'OTP has been sent',
-  };
+  if (!email) return res.json(generic);
 
-  if (!email) return res.status(200).json(generic);
-
-  // generate 6 digit OTP
   const otp = String(Math.floor(100000 + Math.random() * 900000));
-  const expires = new Date(Date.now() + 10 * 60 * 1000); // expire 10 menit
+  const expires = new Date(Date.now() + 10 * 60 * 1000);
 
   const query =
     'UPDATE user SET reset_otp=?, reset_otp_expires_at=? WHERE email=?';
 
-  db.query(query, [otp, expires, email], (err, result) => {
+  db.query(query, [otp, expires, email], async (err, result) => {
     if (err) {
-      console.error('❌ DB error /auth/forgot:', err);
+      console.error('DB ERROR /auth/forgot:', err);
       return res.status(500).json({ message: 'Database error' });
     }
 
     if (result.affectedRows > 0) {
-      console.log(`🔐 OTP for ${email}: ${otp} (valid 10 minutes)`);
-    } else {
-      console.log(`⚠️ Email not found but responding generic: ${email}`);
+      try {
+        await mailer.sendMail({
+          from: `"Solife App" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: 'Reset Password OTP',
+          html: `
+            <h2>Password Reset</h2>
+            <p>Kode OTP kamu:</p>
+            <h1>${otp}</h1>
+            <p>Berlaku 10 menit.</p>
+          `,
+        });
+      } catch (mailErr) {
+        console.error('EMAIL ERROR:', mailErr.message);
+        // ❗ error email TIDAK mematikan server
+      }
     }
 
-    return res.status(200).json(generic);
+    return res.json(generic);
   });
 });
+
 // ======================================================
-//  RESET PASSWORD (cek OTP + ganti password baru)
+// RESET PASSWORD
 // ======================================================
 app.post('/auth/reset', (req, res) => {
   const { email, otp, new_password } = req.body || {};
-  console.log('📩 Hit /auth/reset:', req.body);
+  if (!email || !otp || !new_password)
+    return res.status(400).json({ message: 'All fields required' });
 
-  if (!email || !otp || !new_password) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
+  const select =
+    'SELECT reset_otp, reset_otp_expires_at FROM user WHERE email=?';
 
-  const selectQuery =
-    'SELECT reset_otp, reset_otp_expires_at FROM user WHERE email = ?';
-
-  db.query(selectQuery, [email], (err, rows) => {
-    if (err) {
-      console.error('❌ DB error /auth/reset (select):', err);
-      return res.status(500).json({ message: 'Database error' });
-    }
-
-    if (rows.length === 0) {
+  db.query(select, [email], (err, rows) => {
+    if (err) return res.status(500).json({ message: 'Database error' });
+    if (rows.length === 0)
       return res.status(401).json({ message: 'Invalid or expired OTP' });
-    }
 
     const row = rows[0];
     const expired =
       !row.reset_otp_expires_at ||
       new Date(row.reset_otp_expires_at) < new Date();
 
-    if (expired || row.reset_otp !== otp) {
+    if (expired || row.reset_otp !== otp)
       return res.status(401).json({ message: 'Invalid or expired OTP' });
-    }
 
-    const updateQuery =
-      'UPDATE user SET password = ?, reset_otp = NULL, reset_otp_expires_at = NULL WHERE email = ?';
+    const update =
+      'UPDATE user SET password=?, reset_otp=NULL, reset_otp_expires_at=NULL WHERE email=?';
 
-    db.query(updateQuery, [new_password, email], err2 => {
-      if (err2) {
-        console.error('❌ DB error /auth/reset (update):', err2);
+    db.query(update, [new_password, email], err2 => {
+      if (err2)
         return res.status(500).json({ message: 'Server error' });
-      }
-
-      return res.json({
-        message: 'Password has been reset successfully.',
-      });
+      res.json({ message: 'Password has been reset successfully' });
     });
   });
 });
 
 // ======================================================
-//  GET ALL POSTS
+// POSTS (TETAP)
 // ======================================================
-
-app.get('/post', async (req, res) => {
-  try {
-    const post = new Post();
-    const data = (await post.getPost())[0];
-    res.status(200).json({
-      status: 'success',
-      length: data.length,
-      data: data,
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'error',
-      message: err.message,
-    });
-  }
-});
+app.get('/post', postController.getPost);
+app.get('/post/user/:user_id', postController.getPostsUser);
+app.get('/post/exclude/:user_id', postController.getPostsExcludingUser);
+app.post('/post', upload.single('file'), postController.uploadPost);
+app.patch('/post/:postId', upload.single('file'), postController.updatePost);
+app.delete('/post/:postId', postController.deletePost);
 
 // ======================================================
 //  GET ALL POSTS BY USER ID
@@ -318,6 +336,7 @@ app.delete('/post/:postId', async (req, res) => {
 
 // ======================================================
 //  GET CHAT HISTORY
+// START SERVER
 // ======================================================
 
 app.get("/chat", async (req, res) => {

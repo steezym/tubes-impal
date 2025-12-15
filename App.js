@@ -28,6 +28,8 @@ import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
 import ChatList from './screens/ChatList';
 import Chat from './screens/Chat';
+import Camera from './Camera';
+import Post from './Post';
 
 const Stack = createNativeStackNavigator();
 const API_URL =
@@ -116,16 +118,18 @@ function LoginScreen({ navigation }) {
             {/* Form */}
             <View style={styles.form}>
               <InputWithIcon
-                placeholder="Enter your email"
-                value={email}
-                onChangeText={t => {
-                  setEmail(t);
-                  if (error) setError('');
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                IconComponent={UserIcon}
-              />
+  placeholder="Enter your email"
+  value={email}
+  onChangeText={t => {
+    const cleaned = t.toLowerCase().replace(/\s+/g, '');
+    setEmail(cleaned);
+    if (error) setError('');
+  }}
+  keyboardType="email-address"
+  autoCapitalize="none"
+  IconComponent={UserIcon}
+/>
+
               <InputWithIcon
                 placeholder="Enter your password"
                 value={password}
@@ -196,6 +200,8 @@ export default function App() {
           <Stack.Screen name="Tabs" component={Tabs} />
           <Stack.Screen name="ChatList" component={ChatList} />
           <Stack.Screen name="Chat" component={Chat} />
+          <Stack.Screen name="Camera" component={Camera} />
+          <Stack.Screen name="Post" component={Post} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="Privacy" component={PrivacyScreen} />
         </Stack.Navigator>

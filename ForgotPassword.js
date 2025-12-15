@@ -43,7 +43,7 @@ export default function ForgotPassword({ navigation }) {
 
       setSuccess('OTP has been sent.');
       // ⬇️ auto ke Reset page
-      navigation.navigate('Reset', { email: email.trim() });
+      navigation.navigate('ResetPassword', { email: email.trim() });
     } catch (e) {
       console.log('FORGOT ERROR:', e);
       setError('Unable to connect to the server');
@@ -67,9 +67,7 @@ export default function ForgotPassword({ navigation }) {
             resizeMode="contain"
           />
           <Text style={s.title}>Forgot Password</Text>
-          <Text style={s.subtitle}>
-            Enter your email to receive an OTP.
-          </Text>
+          <Text style={s.subtitle}>Enter your email to receive an OTP.</Text>
         </View>
 
         <View style={s.form}>

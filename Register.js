@@ -19,7 +19,7 @@ const API_URL =
   Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 
 export default function Register({ navigation }) {
-  const [fullName, setFullName] = React.useState('');
+  const [username, setUsername] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [hide, setHide] = React.useState(true);
@@ -33,11 +33,63 @@ export default function Register({ navigation }) {
     setError('');
     setSuccess('');
 
-    if (!fullName.trim() || !email.trim() || !password) {
+    const cleanedUsername = username.trim();
+    const trimmedEmail = email.trim();
+
+    // 1. Cek field kosong
+    if (!cleanedUsername || !trimmedEmail || !password) {
       setError('All fields are required');
       return;
     }
 
+    // 2. Validasi username: hanya lowercase & tidak boleh spasi
+    const usernameRegex = /^[a-z0-9]+$/;
+    if (!usernameRegex.test(cleanedUsername)) {
+      setError(
+        'Username can only contain lowercase letters and numbers, no spaces',
+      );
+      return;
+    }
+
+    // 3. Validasi email hanya gmail.com
+    const gmailRegex = /^[A-Za-z0-9._%+-]+@gmail\.com$/i;
+    if (!gmailRegex.test(trimmedEmail)) {
+      setError('Email must be a valid @gmail.com address');
+      return;
+    }
+
+    // 4. Validasi password kuat
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+
+    if (!hasUpperCase) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+
+    if (!hasLowerCase) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+
+    if (!hasNumber) {
+      setError('Password must contain at least one number');
+      return;
+    }
+
+    if (!hasSymbol) {
+      setError('Password must contain at least one symbol (e.g. !@#$%^&*)');
+      return;
+    }
+
+    // 5. Cek persetujuan terms & privacy
     if (!agree) {
       setError('You must agree to the terms and privacy policy');
       return;
@@ -45,25 +97,65 @@ export default function Register({ navigation }) {
 
     setLoading(true);
     try {
+      // 6. CEK USERNAME SUDAH ADA ATAU BELUM (FRONTEND-INITIATED CHECK)
+      try {
+        const checkRes = await fetch(
+          `${API_URL}/auth/check-username?name=${encodeURIComponent(
+            cleanedUsername,
+          )}`,
+        );
+
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          // backend diharapkan mengembalikan: { exists: true/false }
+          if (checkData?.exists) {
+            setError('Username already registered');
+            return; // jangan lanjut ke register
+          }
+        } else {
+          // kalau mau strict, bisa juga block di sini:
+          // setError('Unable to verify username');
+          // return;
+          console.log('check-username not OK:', checkRes.status);
+        }
+      } catch (checkErr) {
+        console.log('check-username error:', checkErr);
+        // pilihan: lanjut saja, biar backend di /auth/register yang nentuin
+      }
+
+      // 7. Kalau lolos semua, baru kirim REGISTER
       const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: fullName.trim(),
-          email: email.trim(),
+          // nama kolom di DB tetap "name", isinya username
+          name: cleanedUsername,
+          email: trimmedEmail,
           password,
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.log('JSON parse error:', jsonErr);
+        setError('Unexpected server response');
+        return;
+      }
 
       if (!res.ok) {
-        setError(data?.message || 'Registration failed');
+        if (res.status === 409) {
+          // backup kalau backend tetap kirim 409 untuk duplikat
+          setError(data?.message || 'Username already registered');
+        } else {
+          setError(data?.message || 'Registration failed');
+        }
         return;
       }
 
       setSuccess('Registration successful. You can log in now.');
-      setFullName('');
+      setUsername('');
       setEmail('');
       setPassword('');
       setAgree(false);
@@ -100,18 +192,21 @@ export default function Register({ navigation }) {
 
         {/* Form */}
         <View style={s.form}>
+          {/* USERNAME */}
           <InputWithIcon
-            placeholder="Enter your full name"
-            value={fullName}
+            placeholder="Enter username"
+            value={username}
             onChangeText={t => {
-              setFullName(t);
+              const cleaned = t.toLowerCase().replace(/\s+/g, '');
+              setUsername(cleaned);
               setError('');
               setSuccess('');
             }}
-            autoCapitalize="words"
+            autoCapitalize="none"
             IconComponent={UserIcon}
           />
 
+          {/* EMAIL */}
           <InputWithIcon
             placeholder="Enter your email"
             value={email}
@@ -125,6 +220,7 @@ export default function Register({ navigation }) {
             IconComponent={UserIcon}
           />
 
+          {/* PASSWORD */}
           <InputWithIcon
             placeholder="Create password"
             value={password}
@@ -138,14 +234,13 @@ export default function Register({ navigation }) {
             IconComponent={LockIcon}
             rightAccessory={
               <TouchableOpacity onPress={() => setHide(v => !v)}>
-                <Text style={{ fontSize: 16 }}>{hide ? '👁️' : '🙈'}</Text>
+                <Text style={{ fontSize: 16 }}>{hide ? '👁' : '🙈'}</Text>
               </TouchableOpacity>
             }
           />
 
           {/* Checkbox + Terms & Privacy */}
           <View style={s.checkRow}>
-            {/* Kotak centang */}
             <TouchableOpacity
               onPress={() => setAgree(v => !v)}
               activeOpacity={0.8}
@@ -155,7 +250,6 @@ export default function Register({ navigation }) {
               </View>
             </TouchableOpacity>
 
-            {/* Teks dengan link */}
             <Text style={s.checkText}>
               I agree with{' '}
               <Text
@@ -181,14 +275,12 @@ export default function Register({ navigation }) {
 
           {/* Button Sign Up */}
           <TouchableOpacity
-            style={s.btn}
+            style={[s.btn, loading && { opacity: 0.7 }]}
             onPress={onSubmit}
             disabled={loading}
             activeOpacity={0.9}
           >
-            <Text style={s.btnText}>
-              {loading ? 'Loading...' : 'Sign Up'}
-            </Text>
+            <Text style={s.btnText}>{loading ? 'Loading...' : 'Sign Up'}</Text>
           </TouchableOpacity>
 
           {/* Footer Link ke Login */}

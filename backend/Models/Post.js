@@ -1,8 +1,14 @@
 import db from '../config/db.js';
 
 class Post {
-  constructor(postId, content, file, timestamp, user_id) {
-    this.postId = postId;
+  constructor({
+    post_id = null,
+    content = null,
+    file = null,
+    timestamp = null,
+    user_id = null,
+  } = {}) {
+    this.post_id = post_id;
     this.content = content;
     this.file = file;
     this.timestamp = timestamp;
@@ -25,7 +31,7 @@ class Post {
     return db
       .promise()
       .query(SQLQuery, [
-        this.postId,
+        this.post_id,
         this.user_id,
         this.content,
         this.file,
@@ -35,12 +41,14 @@ class Post {
 
   editPost() {
     const SQLQuery = 'UPDATE post SET content = ?, file= ? WHERE post_id = ?';
-    return db.promise().query(SQLQuery, [this.content, this.file, this.postId]);
+    return db
+      .promise()
+      .query(SQLQuery, [this.content, this.file, this.post_id]);
   }
 
   deletePost() {
     const SQLQuery = 'DELETE FROM post WHERE post_id = ?';
-    return db.promise().query(SQLQuery, [this.postId]);
+    return db.promise().query(SQLQuery, [this.post_id]);
   }
 
   getPostByUserId(id) {
