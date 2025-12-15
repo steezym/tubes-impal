@@ -25,14 +25,34 @@ const getInitials = (name) => {
 // group messages per tanggal (dd/mm/yyyy)
 const groupMessagesByDate = (messages) => {
   const groups = {};
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
   messages.forEach((msg) => {
-    const dateObj = new Date(msg.timeStamp); 
-    const dateKey = dateObj.toLocaleDateString('en-GB'); // dd/mm/yyyy
+    const dateObj = new Date(msg.timeStamp);
+    dateObj.setHours(0, 0, 0, 0);
+
+    let dateKey;
+
+    if (dateObj.getTime() === today.getTime()) {
+      dateKey = "Today";
+    } else if (dateObj.getTime() === yesterday.getTime()) {
+      dateKey = "Yesterday";
+    } else {
+      dateKey = dateObj.toLocaleDateString("en-GB"); // dd/mm/yyyy
+    }
+
     if (!groups[dateKey]) groups[dateKey] = [];
     groups[dateKey].push(msg);
   });
+
   return groups;
 };
+
 
 export default function Chat() {
   const route = useRoute();
