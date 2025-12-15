@@ -3,6 +3,11 @@ import cors from 'cors';
 import db from './config/db.js';
 import Post from './Models/Post.js';
 import upload from './config/multer.js';
+import Chat from './Models/Chat.js';
+import Alert from './Models/Alert.js';
+import { v4 as uuidv4 } from 'uuid';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 const app = express();
 const port = 4000;
@@ -312,8 +317,112 @@ app.delete('/post/:postId', async (req, res) => {
 });
 
 // ======================================================
-//  START SERVER
+//  GET CHAT HISTORY
 // ======================================================
-app.listen(port, () => {
+
+app.get("/chat", async (req, res) => {
+  try {
+    const { userA, userB } = req.query;
+    const result = await Chat.getChats(userA, userB);
+    res.json({ data: result });
+  } catch (e) {
+    console.error("GET /chat error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ======================================================
+//  INSERT NEW CHAT MESSAGE
+// ======================================================
+
+app.post("/chat", async (req, res) => {
+  try {
+    const { sender_id, receiver_id, message } = req.body;
+    const chat_id = "C" + uuidv4().slice(0, 8).toUpperCase();
+
+    const chat = new Chat(chat_id, sender_id, receiver_id, message, new Date());
+    await chat.insertChat();
+
+    const savedMsg = {
+      chat_id,
+      sender_id,
+      receiver_id,
+      message,
+      timeStamp: new Date(),
+    };
+
+    io.emit("new_message", savedMsg);
+
+    res.json(savedMsg);
+
+  } catch (e) {
+    console.error("POST /chat error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
+// ======================================================
+//  GET RECENT CHATS
+// ======================================================
+
+app.get("/recent-chats", async (req, res) => {
+  try {
+    const user_id = req.query.user_id;
+    const result = await Chat.getRecentChats(user_id); // STATIC
+    res.json({ data: result });
+  } catch (e) {
+    console.error("GET /recent-chats error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ======================================================
+//  INSERT ALERT
+// ======================================================
+app.post("/alert", async (req, res) => {
+  try {
+    const { user_id, message } = req.body;
+    const alert_id = "A" + Date.now().toString().slice(-6);
+
+    const alert = new Alert(alert_id, user_id, message, new Date());
+    await alert.insertAlert();
+
+    res.json({ status: "success", alert_id });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ======================================================
+//  GET ALERTS BY USER
+// ======================================================
+app.get("/alert/:user_id", async (req, res) => {
+  try {
+    const [rows] = await Alert.getAlertByUser(req.params.user_id);
+    res.json({ status: "success", data: rows });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ======================================================
+//  SOCKET.IO SERVER
+// ======================================================
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" },
+});
+
+// optional untuk lihat client connect
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+});
+
+// ======================================================
+//  START SERVER (gunakan httpServer, BUKAN app.listen)
+// ======================================================
+httpServer.listen(port, () => {
   console.log(`🚀 Server running at http://localhost:${port}`);
 });
+

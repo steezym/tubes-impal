@@ -22,7 +22,7 @@ const Post = props => {
         <Text style={styles.timeText}>{changeDate(props.date)}</Text>
       </View>
       <Image
-        source={{ uri: `http://192.168.100.23:8000/${props.image}` }}
+        source={{ uri: `http://10.0.2.2:4000/${props.image}` }}
         style={styles.upload}
       />
       <Text style={styles.text}>{props.caption}</Text>

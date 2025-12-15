@@ -26,6 +26,8 @@ import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
+import ChatList from './screens/ChatList';
+import Chat from './screens/Chat';
 
 const Stack = createNativeStackNavigator();
 const API_URL =
@@ -192,6 +194,8 @@ export default function App() {
           <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
           <Stack.Screen name="ResetPassword" component={ResetPassword} />
           <Stack.Screen name="Tabs" component={Tabs} />
+          <Stack.Screen name="ChatList" component={ChatList} />
+          <Stack.Screen name="Chat" component={Chat} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="Privacy" component={PrivacyScreen} />
         </Stack.Navigator>

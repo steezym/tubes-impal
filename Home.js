@@ -10,6 +10,10 @@ import PostButton from './assets/components/PostButton/index';
 import DeleteModal from './assets/components/DeleteModal/index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Timer from './services/Timer';
+import AlertModal from './Alert';
+import { BackHandler } from 'react-native';
+import { useRef } from 'react';
 
 const Home = () => {
   const navigation = useNavigation();
@@ -36,7 +40,7 @@ const Home = () => {
     }
   };
 
-  const API_URL = 'http://192.168.100.23:4000'; // Ubah sesuai dengan IPv4 di ipconfig cmd
+  const API_URL = 'http://10.0.2.2:4000'; // Ubah sesuai dengan IPv4 di ipconfig cmd
 
   const getData = async () => {
     await axios
@@ -57,6 +61,10 @@ const Home = () => {
       .then(res => console.log('Delete post success!'));
   };
 
+  const [showAlertModal, setShowAlertModal] = useState(false);
+
+  const timerRef = useRef(null);
+
   useEffect(() => {
     getDataUser('user');
   }, []);
@@ -68,6 +76,26 @@ const Home = () => {
   useEffect(() => {
     getData();
   }, [postSelection]);
+
+  useEffect(() => {
+  if (!userData) return;
+
+  // buat timer baru
+  timerRef.current = new Timer(() => {
+    setShowAlertModal(true);
+
+    axios.post(`${API_URL}/alert`, {
+      user_id: userData.id,
+      message: "User has used the app"
+    }).catch(err => console.log("Alert error:", err.message));
+  }, 120); // 120 test
+
+  // mulai timer
+  timerRef.current.start();
+
+  return () => timerRef.current?.stop();
+
+}, [userData]);
 
   return (
     <LinearGradient
@@ -163,6 +191,24 @@ const Home = () => {
               />
             );
           })}
+          <AlertModal
+            visible={showAlertModal}
+            onSnooze={() => {
+              setShowAlertModal(false);
+
+              // stop timer lama
+              timerRef.current?.stop();
+
+              // buat timer baru
+              timerRef.current = new Timer(() => {
+                setShowAlertModal(true);
+              }, 120);
+
+              // mulai timer baru
+              timerRef.current.start();
+            }}
+            onClose={() => BackHandler.exitApp()}
+          />
           <View style={{ padding: 12 }}></View>
         </View>
       </ScrollView>

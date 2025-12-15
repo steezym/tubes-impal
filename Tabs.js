@@ -6,7 +6,7 @@ import Home from './Home';
 
 import Search from './Search';
 
-import Chat from './Chat';
+import ChatList from './screens/ChatList';
 
 import HomeIcon from './assets/icons/home.png';
 import SearchIcon from './assets/icons/search.png';
@@ -73,8 +73,8 @@ const Tabs = () => {
         }}
       />
       <Tab.Screen
-        name="Chat"
-        component={Chat}
+        name="ChatList"
+        component={ChatList}
         options={{
           tabBarIcon: ({ focused }) => (
             <View>
