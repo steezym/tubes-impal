@@ -30,6 +30,7 @@ import ChatList from './screens/ChatList';
 import Chat from './screens/Chat';
 import Camera from './Camera';
 import Post from './Post';
+import Profile from './screens/Profile';
 
 const Stack = createNativeStackNavigator();
 const API_URL =
@@ -204,6 +205,7 @@ export default function App() {
           <Stack.Screen name="Post" component={Post} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="Privacy" component={PrivacyScreen} />
+          <Stack.Screen name="Profile" component={Profile} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
