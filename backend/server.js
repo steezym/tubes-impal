@@ -7,6 +7,7 @@ import db from './config/db.js';
 import upload from './config/multer.js';
 import Chat from './Models/Chat.js';
 import Alert from './Models/Alert.js';
+import Search from './Models/Search.js';
 import { v4 as uuidv4 } from 'uuid';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -424,6 +425,20 @@ app.get("/alert/:user_id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// ======================================================
+// Search
+// ======================================================
+app.get("/search", async (req, res) => {
+  try {
+    const { query } = req.query;
+    const user = await Search.searchQuery(query || '')
+    res.json({ data: user})
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "Server error"})
+  }
+})
 
 // ======================================================
 //  SOCKET.IO SERVER
